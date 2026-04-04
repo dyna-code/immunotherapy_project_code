@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import React from "react";
 
 const genomicFields = [
   {
@@ -54,6 +55,7 @@ const selectFields = [
   },
 ];
 
+
 const initialFormState = {
   ageAtSequencingDays: "",
   mutationCount: "",
@@ -65,6 +67,7 @@ const initialFormState = {
   sampleType: "",
 };
 
+
 function parseNumericInput(value) {
   const numericValue = Number(value);
   if (Number.isNaN(numericValue)) return null;
@@ -75,6 +78,7 @@ function App() {
   const [formData, setFormData] = useState(initialFormState);
   const [hasPredicted, setHasPredicted] = useState(false);
   const [prediction, setPrediction] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
 
   const isPredictDisabled = useMemo(() => {
     return Object.values(formData).some((value) => value === "");
@@ -133,27 +137,17 @@ function App() {
     setHasPredicted(true);
   };
 
-  return (
-    <div className="app-shell">
-      <header className="title-row">
-        <div className="logo-badge">🧠</div>
-        <div>
-          <h1>Immunotherapy Survival Prediction</h1>
-          <p>AI-Powered Clinical Decision Support System for Oncology</p>
-        </div>
-      </header>
+  const tabs = [
+  {label: "Manual Input", content: 
+    <div>
+      <div className="section-label">
+              <span className="section-icon">🧬</span>
+              <span>Genomic Features</span>
+      </div>
 
-      <main className="dashboard-grid">
-        <section className="card input-card">
-          <h2>Patient Data Input</h2>
+      <div className="form-stack">
 
-          <div className="section-label">
-            <span className="section-icon">🧬</span>
-            <span>Genomic Features</span>
-          </div>
-
-          <div className="form-stack">
-            {genomicFields.map((field) => (
+        {genomicFields.map((field) => (
               <label className="field-group" key={field.id}>
                 <span className="field-label">{field.label}</span>
                 <input
@@ -165,35 +159,60 @@ function App() {
                 />
                 <span className="field-hint">{field.hint}</span>
               </label>
+            ))} 
+        </div>
+
+    </div>
+
+  },
+  {label:"File Upload", content: 
+    <div className="file-upload-form">
+        <p className="file-upload-instructions">Please upload the following FHIR JSON resources, and we will parse the necessary data for you:</p>
+        <p className="file-upload-label">Patient Resource</p>
+          <input className="file-upload-input" type="file" accept=".json" />
+        <p className="file-upload-details">This provides information regarding the patient's age, which is used in the prediction model.</p>
+
+
+        <p className="file-upload-label">Observation Resources</p>
+            <input className="file-upload-input" type="file" accept=".json" />
+        <p className="file-upload-details">This provides information regarding the patient's genomic features (including mutation count, TMB, and tumor purity), which are used in the prediction model.</p>
+    </div>
+
+  }
+]
+
+  return (
+    <div className="app-shell">
+      <header className="title-row">
+        <div className="logo-badge">🧠</div>
+        <div>
+          <h1>Immunotherapy Survival Prediction</h1>
+          <p>AI-Powered Clinical Decision Support System for Oncology</p>
+        </div>
+      </header>
+
+
+      <main className="dashboard-grid">
+
+        <section className="card input-card">
+          <h2>Patient Data Input</h2>
+          <div className="tab-container">
+            {tabs.map((tab, index) => (
+              <button
+                key={index}
+                className={`tab-button ${activeTab === index ? "active" : ""}`}
+                onClick={() => setActiveTab(index)}
+              >
+              {tab.label}
+              </button>
             ))}
           </div>
+        <div className="tab-content">{tabs[activeTab].content}</div>
 
-          <div className="section-label">
-            <span className="section-icon">📈</span>
-            <span>Clinical Features</span>
-          </div>
 
-          <div className="form-stack clinical-stack">
-            {selectFields.map((field) => (
-              <label className="field-group" key={field.id}>
-                <span className="field-label">{field.label}</span>
-                <select
-                  name={field.id}
-                  value={formData[field.id]}
-                  onChange={handleInputChange}
-                >
-                  <option value="" disabled>
-                    {field.placeholder}
-                  </option>
-                  {field.options.map((option) => (
-                    <option value={option} key={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
-          </div>
+
+
+
 
           <div className="button-row">
             <button
