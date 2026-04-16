@@ -79,10 +79,19 @@ function App() {
   const [hasPredicted, setHasPredicted] = useState(false);
   const [prediction, setPrediction] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
+  const [files, setFiles] = useState({patient: null, observation: null, condition: null});
 
   const isPredictDisabled = useMemo(() => {
-    return Object.values(formData).some((value) => value === "");
-  }, [formData]);
+    if (activeTab === 0) {
+      return Object.values(formData).some((value) => value === "");
+    }
+
+    if (activeTab === 1) {    
+      return !Object.values(files).every(Boolean);
+    }
+
+    return true;
+  }, [activeTab, formData, files]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -94,9 +103,17 @@ function App() {
   };
 
   const handleReset = () => {
-    setFormData(initialFormState);
-    setPrediction(null);
-    setHasPredicted(false);
+    if (activeTab === 0) {
+      setFormData(initialFormState);
+      setPrediction(null);
+      setHasPredicted(false);
+    } 
+
+    if (activeTab === 1) {
+      setFiles({patient: null, observation: null, condition: null});
+      setPrediction(null);
+      setHasPredicted(false);
+    }
   };
 
   const handlePredict = () => {
@@ -128,34 +145,50 @@ function App() {
       const confidence = Math.max(70, Math.min(96, 70 + tmb)).toFixed(1);
 
       setPrediction({
-        overallSurvivalMonths: predictedMonths,
-        confidence,
-        riskGroup:
-          Number(predictedMonths) >= 24
-            ? "Lower Risk"
-            : Number(predictedMonths) >= 14
-            ? "Intermediate Risk"
-            : "Higher Risk",
+        overallSurvivalMonths: 6,
+        confidence: "70",
+        riskGroup: "Moderate Risk",
       });
       setHasPredicted(true);
     }
 
      /** File Upload Prediction - Placeholder */
     if (activeTab === 1) {
-      if (!patientResource.files[0] ||
-          !observationResources.files[0] ||
-          !conditionResource.files[0]) {
-        return;
+      if (Object.values(files).every(Boolean)) {
+        /** Placeholder prediction -- replace with ML model */
+        setPrediction({
+          overallSurvivalMonths: 6,
+          confidence: "70",
+          riskGroup: "Moderate Risk",
+        });
+        setHasPredicted(true);
       }
-      /** Placeholder prediction -- replace with ML model */
-      setPrediction({
-        overallSurvivalMonths: "24.5",
-        confidence: "85.3",
-        riskGroup: "Intermediate Risk",
-      });
-      setHasPredicted(true);
     }
   };
+
+
+  const handleFileChange = (event, key) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonData = JSON.parse(e.target.result);
+        setFiles((prev) => ({
+          ...prev,
+          [key]: jsonData,
+        }));
+      } catch (error) {
+        console.error("Error parsing JSON file:", error);
+      }
+    };
+    reader.readAsText(file);
+    console.log("Updated files state:", files);
+  };
+
+
+
+
 
   const tabs = [
   {label: "Manual Input", content: 
@@ -216,27 +249,26 @@ function App() {
     <div className="file-upload-form">
         <p className="file-upload-instructions">Please upload the following FHIR JSON resources, and we will parse the necessary data for you:</p>
         <p className="file-upload-label">Patient Resource</p>
-          <input id="patient-resource" className="file-upload-input" type="file" accept=".json" />
+          <input className="file-upload-input" type="file" accept=".json" onChange={(e) => handleFileChange(e, 'patient')} />
         <p className="file-upload-details">This provides information regarding the patient's age, which is used in the prediction model.</p>
 
 
         <p className="file-upload-label">Observation Resource</p>
-            <input id="observation-resources" className="file-upload-input" type="file" accept=".json" />
+            <input className="file-upload-input" type="file" accept=".json" onChange={(e) => handleFileChange(e, 'observation')} />
         <p className="file-upload-details">This provides information regarding the patient's genomic features (including mutation count, TMB, and tumor purity), which are used in the prediction model.</p>
 
         <p className="file-upload-label">Condition Resource</p>
-            <input id="condition-resource" className="file-upload-input" type="file" accept=".json" />
+            <input className="file-upload-input" type="file" accept=".json" onChange={(e) => handleFileChange(e, 'condition')} />
         <p className="file-upload-details">This provides information regarding the patient's clinical features, such as cancer type, drug type, and sample type.</p>
     </div>
 
   }
 ]
 
-const patientResource = document.getElementById("patient-resource");
-const observationResources = document.getElementById("observation-resources");
-const conditionResource = document.getElementById("condition-resource");
 
-console.log(patientResource, observationResources, conditionResource);  
+
+
+ 
   return (
     <div className="app-shell">
       <header className="title-row">
