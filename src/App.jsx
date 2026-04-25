@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import React from "react";
+import { extractFeaturesFromFhir } from "./fhir/parseFhir";
 
 const genomicFields = [
   {
@@ -80,6 +81,7 @@ function App() {
   const [prediction, setPrediction] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const [files, setFiles] = useState({patient: null, observation: null, condition: null});
+  const [fhirWarnings, setFhirWarnings] = useState([]);
 
   const isPredictDisabled = useMemo(() => {
     if (activeTab === 0) {
@@ -113,6 +115,7 @@ function App() {
       setFiles({patient: null, observation: null, condition: null});
       setPrediction(null);
       setHasPredicted(false);
+      setFhirWarnings([]);
     }
   };
 
@@ -152,17 +155,40 @@ function App() {
       setHasPredicted(true);
     }
 
-     /** File Upload Prediction - Placeholder */
+    /** File Upload Prediction - FHIR-driven */
     if (activeTab === 1) {
-      if (Object.values(files).every(Boolean)) {
-        /** Placeholder prediction -- replace with ML model */
-        setPrediction({
-          overallSurvivalMonths: 6,
-          confidence: "70",
-          riskGroup: "Moderate Risk",
-        });
-        setHasPredicted(true);
-      }
+      if (!Object.values(files).every(Boolean)) return;
+
+      const { features, missing } = extractFeaturesFromFhir(files);
+      console.log("Extracted FHIR features:", features);
+      console.log("Missing FHIR fields:", missing);
+      setFhirWarnings(missing);
+
+      // Reuse the same placeholder scoring formula as the manual-input tab so
+      // the two paths are comparable. Missing numerics fall back to baseline 0
+      // as the Cox model expects; the Cox swap happens in step 5.
+      const ageDays = features.ageAtSequencingDays ?? 0;
+      const mutationCount = features.mutationCount ?? 0;
+      const tmb = features.tmb ?? 0;
+      const purity = features.tumorPurity ?? 0;
+
+      const ageYears = ageDays / 365;
+      const score =
+        20 +
+        Math.max(0, 18 - ageYears / 4) +
+        Math.min(12, tmb) +
+        Math.min(8, mutationCount / 40) +
+        purity * 12;
+
+      const predictedMonths = Math.max(3, Math.min(48, score)).toFixed(1);
+      const confidence = Math.max(70, Math.min(96, 70 + tmb)).toFixed(1);
+
+      setPrediction({
+        overallSurvivalMonths: predictedMonths,
+        confidence,
+        riskGroup: "Moderate Risk",
+      });
+      setHasPredicted(true);
     }
   };
 
@@ -260,6 +286,17 @@ function App() {
         <p className="file-upload-label">Condition Resource</p>
             <input className="file-upload-input" type="file" accept=".json" onChange={(e) => handleFileChange(e, 'condition')} />
         <p className="file-upload-details">This provides information regarding the patient's clinical features, such as cancer type, drug type, and sample type.</p>
+
+        {hasPredicted && fhirWarnings.length > 0 && (
+          <div className="fhir-warning">
+            <strong>Missing from FHIR resources (using baseline 0):</strong>
+            <ul>
+              {fhirWarnings.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          </div>
+        )}
     </div>
 
   }
