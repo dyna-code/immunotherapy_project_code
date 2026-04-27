@@ -27,7 +27,7 @@
           { "system": "http://loinc.org", "code": "82120-4" }
         ]
       },
-      "valueInteger": 421
+      "valueInteger": 42
     }
   ]
 }
