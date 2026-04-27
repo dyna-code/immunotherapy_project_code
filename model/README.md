@@ -49,10 +49,15 @@ Use the raw numeric value directly as `x_i`.
 
 | Feature | CSV Column | Expected Range |
 |---|---|---|
-| Age at sequencing | `Age at Which Sequencing was Reported (Days)` | e.g. 0–36500 (days) |
+| Age at sequencing | `Age at Which Sequencing was Reported (Days)` | **Years(0-100)** ⚠️|
 | Mutation Count | `Mutation Count` | Integer ≥ 0 |
 | TMB (nonsynonymous) | `TMB (nonsynonymous)` | Float ≥ 0 |
 | Tumor Purity | `Tumor Purity` | Float between 0 and 1 |
+
+> ⚠️ **Age unit mismatch warning:** The CSV column is named `"Age at Which Sequencing was Reported (Days)"` but the coefficient (`-0.005020`) was fit on age in **years**, not days. If you pass in days (e.g. 18250 for a 50-year-old), the exponential will collapse to ~0 and break the risk score entirely. Always convert to years before multiplying by the coefficient:
+> ```javascript
+> const ageInYears = ageInDays / 365.25;
+> ```
 
 ### Categorical Features (binary 0/1 encoding)
 Each category is a separate row in the CSV. Set `x_i = 1` if the patient matches that category, otherwise `x_i = 0`. Only **one** option per group should be 1 at a time.
@@ -94,10 +99,12 @@ Each category is a separate row in the CSV. Set `x_i = 1` if the patient matches
 
 ## JavaScript Implementation Example
 
+> ⚠️ **Age unit mismatch:** Despite the column being named `"Age at Which Sequencing was Reported (Days)"`, the coefficient was fit on age in **years**. Always divide days by 365.25 before using it.
+
 ```javascript
 // Load coefficients from summary_df.csv (parse CSV first)
 const coefficients = {
-  "Age at Which Sequencing was Reported (Days)": -0.005020,
+  "Age at Which Sequencing was Reported (Days)": -0.005020, // ⚠️ input must be in YEARS
   "Mutation Count": -0.015148,
   "TMB (nonsynonymous)": -0.007470,
   "Tumor Purity": 0.002771,
@@ -131,7 +138,7 @@ function computeRiskScore(patientFeatures) {
 
 // Example patient
 const patient = {
-  "Age at Which Sequencing was Reported (Days)": 18250, // ~50 years
+  "Age at Which Sequencing was Reported (Years)": 50,
   "Mutation Count": 5,
   "TMB (nonsynonymous)": 3.2,
   "Tumor Purity": 0.6,
@@ -186,7 +193,7 @@ These are the most reliable signals — consider highlighting them in the UI:
 ┌─────────────────────────────────────────┐
 │  Patient Risk Calculator                │
 ├─────────────────────────────────────────┤
-│  Age (days):        [        18250     ]│
+│  Age (years):       [        50        ]│
 │  Mutation Count:    [            5     ]│
 │  TMB:               [          3.2     ]│
 │  Tumor Purity:      [          0.6     ]│
