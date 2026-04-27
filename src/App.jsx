@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import React from "react";
+import { extractFeaturesFromFhir } from "./fhir/parseFhir";
 
 const genomicFields = [
   {
@@ -81,6 +82,7 @@ function App() {
   const [prediction, setPrediction] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const [files, setFiles] = useState({patient: null, observation: null, condition: null});
+  const [fhirWarnings, setFhirWarnings] = useState([]);
 
   const isPredictDisabled = useMemo(() => {
     if (activeTab === 0) {
@@ -113,6 +115,7 @@ function App() {
       setFiles({patient: null, observation: null, condition: null});
       setPrediction(null);
       setHasPredicted(false);
+      setFhirWarnings([]);
     }
   };
 
@@ -122,7 +125,7 @@ function App() {
       
       const updatedInput = changeDataFormat(formData);
       const riskScore = predictModel(updatedInput);
-
+      console.log(riskScore);
       let medSurv = "";
       let riskGroup = ""; 
       [medSurv, riskGroup] = categorizeRisk(riskScore);
@@ -135,16 +138,28 @@ function App() {
       setHasPredicted(true);
     }
 
-     /** File Upload Prediction - Placeholder */
+     /** File Upload Prediction - FHIR */
     if (activeTab === 1) {
       if (Object.values(files).every(Boolean)) {
         /** Placeholder prediction -- replace with ML model */
-        setPrediction({
-          riskScore: 0.2,
-          approximateMedianSurvival: ">3 years",
-          riskGroup: "Extremely Low Risk",
-        });
-        setHasPredicted(true);
+      const { features, missing } = extractFeaturesFromFhir(files);
+
+      setFhirWarnings(missing);
+
+      const updatedInput = changeDataFormat(features);
+      const riskScore = predictModel(updatedInput);
+
+      console.log(riskScore);
+      let medSurv = "";
+      let riskGroup = ""; 
+      [medSurv, riskGroup] = categorizeRisk(riskScore);
+      
+      setPrediction({
+        riskScore: riskScore.toFixed(2),
+        approximateMedianSurvival: medSurv,
+        riskGroup: riskGroup,
+      });
+      setHasPredicted(true);
       }
     }
   };
@@ -171,7 +186,7 @@ function App() {
     };
 
     let inputData =  baseInputData;
-    inputData.ageDays = parseNumericInput(formData.ageAtSequencingDays);
+    inputData.ageDays = parseNumericInput(formData.ageAtSequencingDays) / 365.25;
     inputData.mutationCount = parseNumericInput(formData.mutationCount);
     inputData.tmb = parseNumericInput(formData.tmb);
     inputData.tumorPurity = parseNumericInput(formData.tumorPurity);
@@ -373,6 +388,7 @@ function App() {
         <p className="file-upload-label">Condition Resource</p>
             <input className="file-upload-input" type="file" accept=".json" onChange={(e) => handleFileChange(e, 'condition')} />
         <p className="file-upload-details">This provides information regarding the patient's clinical features, such as cancer type, drug type, and sample type.</p>
+
     </div>
 
   }
@@ -401,7 +417,7 @@ function App() {
             {tabs.map((tab, index) => (
               <button
                 key={index}
-                className={`tab-button ${activeTab === index ? "active" : ""}`}
+                className={`tab-button${activeTab === index ? "-active" : ""}`}
                 onClick={() => setActiveTab(index)}
               >
               {tab.label}
@@ -417,13 +433,13 @@ function App() {
 
           <div className="button-row">
             <button
-              className="predict-button"
+              className={`predict-button${hasPredicted? "" : "-done"}`}
               onClick={handlePredict}
               disabled={isPredictDisabled}
             >
               Predict Survival
             </button>
-            <button className="reset-button" onClick={handleReset}>
+            <button className={`reset-button${hasPredicted? "" : "-done"}`} onClick={handleReset}>
               Reset
             </button>
           </div>
@@ -454,6 +470,16 @@ function App() {
                 <span>Risk Group</span>
                 <strong>{prediction.riskGroup}</strong>
               </div>
+              {hasPredicted && fhirWarnings.length > 0 && (
+                <div className="fhir-warning">
+                <strong>Missing from FHIR resources (using baseline 0):</strong>
+                <ul>
+                  {fhirWarnings.map((f) => (
+                   <li key={f}>{f}</li>
+                  ))}
+                </ul>
+              </div>
+         )}
             </div>
           )}
         </section>
