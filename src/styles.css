@@ -272,6 +272,7 @@ select option {
 .result-item strong {
   color: #e6ecff;
   font-size: 18px;
+  padding-left: 72px;
 }
 
 .model-card {
