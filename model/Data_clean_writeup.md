@@ -38,7 +38,7 @@ The work is organized into two complementary modeling tracks — a binary classi
 |---|---|---|
 | Logistic Regression (L2, class-weighted) | 0.652 | 0.696 |
 | Gradient Boosting | 0.684 | 0.700 |
-| XGBoost (scale_pos_weight balanced) | 0.687 | 0.703 |
+| XGBoost (scale_pos_weight = neg/pos ratio) | 0.687 | 0.703 |
 | Random Forest (depth=5, class-weighted) | 0.645 | 0.683 |
 
 XGBoost is the top performer and is carried forward. All four models show a consistent pattern: better recall on the "no benefit" class than the "benefit" class — i.e. the models are somewhat more conservative about predicting benefit.
